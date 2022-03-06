@@ -9,6 +9,11 @@ export const DEFAULTS: {
 
 export interface RollupNodeResolveOptions {
   /**
+   * Map package name (whole string) to an explicit path
+   */
+  mapPaths?: { [alias: string]: string };
+
+  /**
    * Additional conditions of the package.json exports field to match when resolving modules.
    * By default, this plugin looks for the `'default', 'module', 'import']` conditions when resolving imports.
    *

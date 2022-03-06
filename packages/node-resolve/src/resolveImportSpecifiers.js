@@ -17,6 +17,16 @@ const resolveImportPath = promisify(resolve);
 const readFile = promisify(fs.readFile);
 
 async function getPackageJson(importer, pkgName, resolveOptions, moduleDirectories) {
+  if (resolveOptions.mapPaths && resolveOptions.mapPaths[pkgName]) {
+    const pkgPath = resolveOptions.mapPaths[pkgName];
+    const pkgJsonPath = `${pkgPath}/package.json`;
+    try {
+      const pkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf-8'));
+      return { pkgJsonPath, pkgJson, pkgPath };
+    } catch (_) {
+      return null;
+    }
+  }
   if (importer) {
     const selfPackageJsonResult = await findPackageJson(importer, moduleDirectories);
     if (selfPackageJsonResult && selfPackageJsonResult.pkgJson.name === pkgName) {
@@ -45,6 +55,7 @@ async function resolveIdClassic({
   moduleDirectories,
   rootDir,
   ignoreSideEffectsForRoot
+  mapPaths
 }) {
   let hasModuleSideEffects = () => null;
   let hasPackageEntry = true;
@@ -82,6 +93,7 @@ async function resolveIdClassic({
   };
 
   let location;
+  // IWOZERE
   try {
     location = await resolveImportPath(importSpecifier, resolveOptions);
   } catch (error) {
@@ -112,7 +124,8 @@ async function resolveWithExportMap({
   baseDir,
   moduleDirectories,
   rootDir,
-  ignoreSideEffectsForRoot
+  ignoreSideEffectsForRoot,
+  mapPaths
 }) {
   if (importSpecifier.startsWith('#')) {
     // this is a package internal import, resolve using package imports field
@@ -130,7 +143,8 @@ async function resolveWithExportMap({
           preserveSymlinks,
           useBrowserOverrides,
           baseDir,
-          moduleDirectories
+          moduleDirectories,
+          mapPaths
         });
       }
     });
@@ -181,7 +195,8 @@ async function resolveWithExportMap({
       includeCoreModules: false,
       moduleDirectory: moduleDirectories,
       preserveSymlinks,
-      packageFilter: filter
+      packageFilter: filter,
+      mapPaths
     };
 
     const result = await getPackageJson(importer, pkgName, resolveOptions, moduleDirectories);
@@ -276,7 +291,8 @@ export default async function resolveImportSpecifiers({
   baseDir,
   moduleDirectories,
   rootDir,
-  ignoreSideEffectsForRoot
+  ignoreSideEffectsForRoot,
+  mapPaths
 }) {
   try {
     const exportMapRes = await resolveWithExportMap({
@@ -291,7 +307,8 @@ export default async function resolveImportSpecifiers({
       baseDir,
       moduleDirectories,
       rootDir,
-      ignoreSideEffectsForRoot
+      ignoreSideEffectsForRoot,
+      mapPaths
     });
     if (exportMapRes) return exportMapRes;
   } catch (error) {
@@ -316,6 +333,7 @@ export default async function resolveImportSpecifiers({
     baseDir,
     moduleDirectories,
     rootDir,
-    ignoreSideEffectsForRoot
+    ignoreSideEffectsForRoot,
+    mapPaths
   });
 }
