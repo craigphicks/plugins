@@ -17,15 +17,29 @@ const resolveImportPath = promisify(resolve);
 const readFile = promisify(fs.readFile);
 
 async function getPackageJson(importer, pkgName, resolveOptions, moduleDirectories) {
-  if (resolveOptions.mapPaths && resolveOptions.mapPaths[pkgName]) {
-    const pkgPath = resolveOptions.mapPaths[pkgName];
+  if (resolveOptions.mapPkgs && resolveOptions.mapPkgs.mappings[pkgName]) {
+    const pkgPath = resolveOptions.mapPkgs.mappings[pkgName];
     const pkgJsonPath = `${pkgPath}/package.json`;
+    const pkgJsonTxt = await readFile(pkgJsonPath, 'utf-8').catch((e) => {
+      const ee = new Error(`mapPkgs: ${e.message}, ${e.code ? e.code : ''}`);
+      ee.code = e.code;
+      throw ee;
+    });
+    let pkgJson;
     try {
-      const pkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf-8'));
-      return { pkgJsonPath, pkgJson, pkgPath };
-    } catch (_) {
-      return null;
+      pkgJson = JSON.parse(pkgJsonTxt);
+    } catch (e) {
+      const ee = new Error(
+        `mapPkgs: failed to parse package.json content for "${pkgName}",  ${e.message}`
+      );
+      ee.code = e.code;
     }
+    if (pkgJson.name !== pkgName && !resolveOptions.mapPkgs.pkgNameMayDiffer) {
+      const e = new Error(`mapPkgs: expecting pkg name "${pkgName}" but found "${pkgJson.name}"`);
+      e.code = 'WRONG_PACKAGE_NAME';
+      throw e;
+    }
+    return { pkgJsonPath, pkgJson, pkgPath };
   }
   if (importer) {
     const selfPackageJsonResult = await findPackageJson(importer, moduleDirectories);
@@ -55,7 +69,6 @@ async function resolveIdClassic({
   moduleDirectories,
   rootDir,
   ignoreSideEffectsForRoot
-  mapPaths
 }) {
   let hasModuleSideEffects = () => null;
   let hasPackageEntry = true;
@@ -93,7 +106,6 @@ async function resolveIdClassic({
   };
 
   let location;
-  // IWOZERE
   try {
     location = await resolveImportPath(importSpecifier, resolveOptions);
   } catch (error) {
@@ -125,7 +137,7 @@ async function resolveWithExportMap({
   moduleDirectories,
   rootDir,
   ignoreSideEffectsForRoot,
-  mapPaths
+  mapPkgs
 }) {
   if (importSpecifier.startsWith('#')) {
     // this is a package internal import, resolve using package imports field
@@ -143,8 +155,7 @@ async function resolveWithExportMap({
           preserveSymlinks,
           useBrowserOverrides,
           baseDir,
-          moduleDirectories,
-          mapPaths
+          moduleDirectories
         });
       }
     });
@@ -196,7 +207,7 @@ async function resolveWithExportMap({
       moduleDirectory: moduleDirectories,
       preserveSymlinks,
       packageFilter: filter,
-      mapPaths
+      mapPkgs
     };
 
     const result = await getPackageJson(importer, pkgName, resolveOptions, moduleDirectories);
@@ -292,7 +303,7 @@ export default async function resolveImportSpecifiers({
   moduleDirectories,
   rootDir,
   ignoreSideEffectsForRoot,
-  mapPaths
+  mapPkgs
 }) {
   try {
     const exportMapRes = await resolveWithExportMap({
@@ -308,7 +319,7 @@ export default async function resolveImportSpecifiers({
       moduleDirectories,
       rootDir,
       ignoreSideEffectsForRoot,
-      mapPaths
+      mapPkgs
     });
     if (exportMapRes) return exportMapRes;
   } catch (error) {
@@ -333,7 +344,6 @@ export default async function resolveImportSpecifiers({
     baseDir,
     moduleDirectories,
     rootDir,
-    ignoreSideEffectsForRoot,
-    mapPaths
+    ignoreSideEffectsForRoot
   });
 }

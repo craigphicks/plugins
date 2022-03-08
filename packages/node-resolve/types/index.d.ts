@@ -9,10 +9,15 @@ export const DEFAULTS: {
 
 export interface RollupNodeResolveOptions {
   /**
-   * Map package name (whole string) to an explicit path
+   * Map package name to an explicit path.  Package must contain package.json
+   * with "name" field equal to packageName.
+   * If the "name" field is not equal, an error will occur.
+   * This mapping will preempt resolving to self and resolving via node_modules.
    */
-  mapPaths?: { [alias: string]: string };
-
+  mapPkgs?: {
+    pkgNameMayDiffer?: boolean;
+    mappings: { [packageName: string]: string };
+  };
   /**
    * Additional conditions of the package.json exports field to match when resolving modules.
    * By default, this plugin looks for the `'default', 'module', 'import']` conditions when resolving imports.

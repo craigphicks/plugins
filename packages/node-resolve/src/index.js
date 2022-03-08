@@ -63,14 +63,24 @@ export function nodeResolve(opts = {}) {
       options.dedupe.includes(importee) || options.dedupe.includes(getPackageName(importee));
   }
 
-  const { mapPaths } = options;
+  const { mapPkgs } = options;
   const extraResolveOnly = [];
-  if (mapPaths && options.resolveOnly) {
-    Object.keys(mapPaths).forEach((m) => {
-      if (!options.resolveOnly.includes(m)) extraResolveOnly.push(m);
+  if (mapPkgs) {
+    Object.keys(mapPkgs).forEach((k) => {
+      if (!['mappings', 'pkgNameMayDiffer'].includes(k))
+        throw new Error(
+          `mapPkgs:  unknown property ${k}, epxpecting one of "mappings","pkgNameMayDiffer"`
+        );
     });
+    if (mapPkgs.mappings)
+      Object.keys(mapPkgs.mappings).forEach((m) => {
+        if (!options.resolveOnly?.includes(m)) extraResolveOnly.push(m);
+      });
   }
-  const resolveOnly = [...options.resolveOnly, ...extraResolveOnly].map((pattern) => {
+  const resolveOnly = (options.resolveOnly
+    ? [...options.resolveOnly, ...extraResolveOnly]
+    : extraResolveOnly
+  ).map((pattern) => {
     if (pattern instanceof RegExp) {
       return pattern;
     }
@@ -171,7 +181,7 @@ export function nodeResolve(opts = {}) {
       moduleDirectories,
       rootDir,
       ignoreSideEffectsForRoot,
-      mapPaths
+      mapPkgs
     });
 
     const importeeIsBuiltin = builtins.has(importee);
@@ -261,10 +271,6 @@ export function nodeResolve(opts = {}) {
     },
 
     async resolveId(importee, importer, resolveOptions) {
-      // if (options.mapPaths && options.mapPaths[importee]) {
-      //   importee = options.mapPaths[importee];
-      // }
-
       if (importee === ES6_BROWSER_EMPTY) {
         return importee;
       }
