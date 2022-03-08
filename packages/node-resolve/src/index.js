@@ -67,10 +67,32 @@ export function nodeResolve(opts = {}) {
   const extraResolveOnly = [];
   if (mapPkgs) {
     Object.keys(mapPkgs).forEach((k) => {
-      if (!['mappings', 'pkgNameMayDiffer'].includes(k))
-        throw new Error(
-          `mapPkgs:  unknown property ${k}, epxpecting one of "mappings","pkgNameMayDiffer"`
+      if (!['mappings', 'pkgNameMayDiffer'].includes(k)) {
+        const e = new Error(
+          `mapPkgs:  unknown property ${k}, expecting one of "mappings","pkgNameMayDiffer"`
         );
+        e.code = 'MAP_PKGS_CONFIG';
+        throw e;
+      }
+      if (k !== '.' && k[0] === '.') {
+        const e = new Error(`mapPkgs:  illegal syntax ${k}, relative keys not allowed`);
+        e.code = 'MAP_PKGS_CONFIG';
+        throw e;
+      }
+      if (k !== '.') {
+        const parts = k.split(/[/\\]/);
+        if (
+          parts.some((p) => !p) ||
+          (parts[0][0] === '@' && parts.length !== 2) ||
+          (parts[0][0] !== '@' && parts.length !== 1)
+        ) {
+          const e = new Error(
+            `mapPkgs:  illegal syntax ${k}, key must be '@<scope>/<name>' or  '<name>'`
+          );
+          e.code = 'MAP_PKGS_CONFIG';
+          throw e;
+        }
+      }
     });
     if (mapPkgs.mappings)
       Object.keys(mapPkgs.mappings).forEach((m) => {
@@ -254,14 +276,14 @@ export function nodeResolve(opts = {}) {
 
     version,
 
-    buildStart(options) {
-      rollupOptions = options;
+    buildStart(options1) {
+      rollupOptions = options1;
 
       for (const warning of warnings) {
         this.warn(warning);
       }
 
-      ({ preserveSymlinks } = options);
+      ({ preserveSymlinks } = options1);
     },
 
     generateBundle() {

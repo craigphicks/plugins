@@ -1,0 +1,5 @@
+{
+  "name": "test",
+  "main": "index-cjs.js",
+  "module": "index-mjs.js"
+}

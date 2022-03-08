@@ -21,8 +21,8 @@ async function getPackageJson(importer, pkgName, resolveOptions, moduleDirectori
     const pkgPath = resolveOptions.mapPkgs.mappings[pkgName];
     const pkgJsonPath = `${pkgPath}/package.json`;
     const pkgJsonTxt = await readFile(pkgJsonPath, 'utf-8').catch((e) => {
-      const ee = new Error(`mapPkgs: ${e.message}, ${e.code ? e.code : ''}`);
-      ee.code = e.code;
+      const ee = new Error(`mapPkgs: ${e.message}`);
+      ee.code = `MAP_PKGS_${e.code}`;
       throw ee;
     });
     let pkgJson;
@@ -32,11 +32,18 @@ async function getPackageJson(importer, pkgName, resolveOptions, moduleDirectori
       const ee = new Error(
         `mapPkgs: failed to parse package.json content for "${pkgName}",  ${e.message}`
       );
-      ee.code = e.code;
+      ee.code = `MAP_PKGS_${e.code}`;
     }
-    if (pkgJson.name !== pkgName && !resolveOptions.mapPkgs.pkgNameMayDiffer) {
-      const e = new Error(`mapPkgs: expecting pkg name "${pkgName}" but found "${pkgJson.name}"`);
-      e.code = 'WRONG_PACKAGE_NAME';
+    if (pkgJson.name !== pkgName) {
+      const e = new Error(
+        `mapPkgs: in ${pkgPath}/package.json expecting name "${pkgName}" but found "${pkgJson.name}"`
+      );
+      e.code = 'MAP_PKGS_WRONG_PACKAGE_NAME';
+      throw e;
+    }
+    if (!pkgJson.exports) {
+      const e = new Error(`mapPkgs: ${pkgPath}/package.json has no property "exports"`);
+      e.code = 'MAP_PKGS_NO_EXPORT_PROP';
       throw e;
     }
     return { pkgJsonPath, pkgJson, pkgPath };

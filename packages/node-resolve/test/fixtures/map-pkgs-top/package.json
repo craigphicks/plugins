@@ -1,0 +1,9 @@
+{
+  "name": "test",
+  "version": "1.0.0",
+  "main": "./only.js",
+  "exports":{
+    "require":"./only.js",
+    "import":"./only.js"
+  }
+}

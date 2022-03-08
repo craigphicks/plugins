@@ -1,14 +1,18 @@
 const { join, resolve } = require('path');
 
+const fs = require('fs');
+
 const test = require('ava');
 const { rollup } = require('rollup');
 
-const { getImports, getResolvedModules, testBundle } = require('../../../util/test');
+const { getImports, getResolvedModules } = require('../../../util/test');
 const { nodeResolve } = require('..');
 
-process.chdir(join(__dirname, 'fixtures'));
+process.chdir(join(__dirname, 'fixtures', 'map-pkgs-top'));
 
-test('map "test"', async (t) => {
+if (!fs.existsSync('only.js')) throw new Error('oops');
+
+test('mapPkgs "test" (self)', async (t) => {
   const warnings = [];
   const bundle = await rollup({
     input: ['only.js'],
@@ -26,86 +30,152 @@ test('map "test"', async (t) => {
   const imports = await getImports(bundle);
   const modules = await getResolvedModules(bundle);
 
-  t.is(warnings.length, 0);
-  t.snapshot(warnings);
+  t.is(warnings.length, 1);
+  t.is(warnings[0].code, 'CIRCULAR_DEPENDENCY');
+  t.deepEqual(warnings[0].cycle, ['only.js', 'only.js']);
   t.deepEqual(imports, ['@scoped/foo', '@scoped/bar']);
   t.assert(Object.keys(modules).includes(resolve('only-local.js')));
 });
 
-test('handles nested entry modules', async (t) => {
-  const warnings = [];
-  const bundle = await rollup({
-    input: ['nested/only.js'],
-    onwarn: (warning) => warnings.push(warning),
-    plugins: [
-      nodeResolve({
-        // resolveOnly: ['test'],
-        mapPkgs: {
-          mappings: {
-            test: '.'
-          }
-        }
-      })
-    ]
-  });
-  const imports = await getImports(bundle);
-  const modules = await getResolvedModules(bundle);
-
-  t.is(warnings.length, 0);
-  t.snapshot(warnings);
-  t.deepEqual(imports, ['@scoped/foo', '@scoped/bar']);
-  t.assert(Object.keys(modules).includes(resolve('only-local.js')));
-});
-
-test('scoped', async (t) => {
+test('mapPkgs "test" to ./map-pkgs/no-such-dir', async (t) => {
   const warnings = [];
   try {
     // const bundle =
     await rollup({
-      input: 'only.js',
+      input: ['only.js'],
       onwarn: (warning) => warnings.push(warning),
       plugins: [
         nodeResolve({
           mapPkgs: {
             mappings: {
-              '@scoped/bar': './node_modules/bar',
-              '@scoped/foo': './node_modules/foo'
+              test: './map-pkgs/no-such-dir'
             }
           }
         })
       ]
     });
   } catch (e) {
-    t.is(e.code, 'UNOENT');
+    t.is(warnings.length, 0);
+    t.is(e.code, 'PLUGIN_ERROR');
+    t.is(e.pluginCode, 'MAP_PKGS_ENOENT');
     return;
   }
   t.fail('expecting error');
-  // const imports = await getImports(bundle);
-  // const modules = await getResolvedModules(bundle);
-
-  // t.is(warnings.length, 0);
-  // t.snapshot(warnings);
-  // t.deepEqual(imports, ['test']);
-  // t.assert(Object.keys(modules).includes(resolve('only-local.js')));
 });
 
-test('map paths- a literal match takes presedence', async (t) => {
-  const bundle = await rollup({
-    input: 'exports-literal-specificity.js',
-    onwarn: () => {
-      t.fail('No warnings were expected');
-    },
-    plugins: [
-      nodeResolve({
-        mapPkgs: {
-          mappings: {
-            'exports-literal-specificity': './node_modules/exports-literal-specificity'
+test('mapPkgs "test" (./map-pkgs/1-no-package-json)', async (t) => {
+  const warnings = [];
+  try {
+    // const bundle =
+    await rollup({
+      input: ['only.js'],
+      onwarn: (warning) => warnings.push(warning),
+      plugins: [
+        nodeResolve({
+          mapPkgs: {
+            mappings: {
+              test: './map-pkgs/1-no-package-json'
+            }
           }
-        }
-      })
-    ]
-  });
-  const { module } = await testBundle(t, bundle);
+        })
+      ]
+    });
+  } catch (e) {
+    t.is(warnings.length, 0);
+    t.is(e.code, 'PLUGIN_ERROR');
+    t.is(e.pluginCode, 'MAP_PKGS_ENOENT');
+    return;
+  }
+  t.fail('expecting error');
+});
 
-  t.deepEqual(module.exports, { a: 'foo a' });
+test('mapPkgs "test" (./map-pkgs/2-different-name)', async (t) => {
+  const warnings = [];
+  try {
+    // const bundle =
+    await rollup({
+      input: ['only.js'],
+      onwarn: (warning) => warnings.push(warning),
+      plugins: [
+        nodeResolve({
+          mapPkgs: {
+            mappings: {
+              test: './map-pkgs/2-different-name'
+            }
+          }
+        })
+      ]
+    });
+  } catch (e) {
+    t.is(warnings.length, 0);
+    t.is(e.code, 'PLUGIN_ERROR');
+    t.is(e.pluginCode, 'MAP_PKGS_WRONG_PACKAGE_NAME');
+    return;
+  }
+  t.fail('expecting error');
+});
+
+test('mapPkgs "test" (./map-pkgs/3-no-export-prop)', async (t) => {
+  const warnings = [];
+  try {
+    // const bundle =
+    await rollup({
+      input: ['only.js'],
+      onwarn: (warning) => warnings.push(warning),
+      plugins: [
+        nodeResolve({
+          mapPkgs: {
+            mappings: {
+              test: './map-pkgs/3-no-export-prop'
+            }
+          }
+        })
+      ]
+    });
+  } catch (e) {
+    t.is(warnings.length, 0);
+    t.is(e.code, 'PLUGIN_ERROR');
+    t.is(e.pluginCode, 'MAP_PKGS_NO_EXPORT_PROP');
+    return;
+  }
+  t.fail('expecting error');
+});
+
+test('mapPkgs "test" (./map-pkgs/4-has-empty-exports)', async (t) => {
+  const warnings = [];
+  let bundle;
+  try {
+    bundle = await rollup({
+      input: ['only.js'],
+      onwarn: (warning) => warnings.push(warning),
+      plugins: [
+        nodeResolve({
+          mapPkgs: {
+            mappings: {
+              test: './map-pkgs/4-has-empty-exports'
+            }
+          }
+        })
+      ]
+    });
+  } catch (e) {
+    t.is(warnings.length, 0);
+    t.is(e.code, 'PLUGIN_ERROR');
+    t.is(e.pluginCode, 'XXXXX');
+    return;
+  }
+  t.is(warnings.length > 0, true);
+  t.is(
+    warnings.some(
+      (w) => w.code === 'UNRESOLVED_IMPORT' && w.source === 'test' && w.importer === 'only.js'
+    ),
+    true
+  );
+  const imports = await getImports(bundle);
+  t.is(imports.includes('test'), true);
+  const modules = await getResolvedModules(bundle);
+  t.is(
+    !Object.keys(modules).some((m) => !m.endsWith('/only.js') && !m.endsWith('/only-local.js')),
+    true
+  );
 });

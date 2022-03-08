@@ -9,13 +9,12 @@ export const DEFAULTS: {
 
 export interface RollupNodeResolveOptions {
   /**
-   * Map package name to an explicit path.  Package must contain package.json
+   * Map packages to an explicit path.  Package must contain package.json
    * with "name" field equal to packageName.
    * If the "name" field is not equal, an error will occur.
    * This mapping will preempt resolving to self and resolving via node_modules.
    */
   mapPkgs?: {
-    pkgNameMayDiffer?: boolean;
     mappings: { [packageName: string]: string };
   };
   /**
